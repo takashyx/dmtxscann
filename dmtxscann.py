@@ -18,11 +18,12 @@ import os
 import sys
 import datetime
 import time
-from pydmtx import DataMatrix
+from pylibdmtx import pylibdmtx
 
 
 def data_matrix_demo(cap):
     window_name = "datamatrix scanner"
+    window_2_name = "datamatrix scanner preprocessed"
     frame_number = 0
     need_to_save = False
 
@@ -55,14 +56,20 @@ def data_matrix_demo(cap):
                 cv2.rectangle(imr, (80, 80), (240, 160), (255, 255, 255), 1)
                 cv2.line(imr, (160, 80), (160, 160), (0, 255, 0), 1)
                 cv2.line(imr, (80, 120), (240, 120), (0, 255, 0), 1)
-                code, points = decode(imdecode)
-                for i, point in enumerate(points):
-                    cv2.line(imr, point, points[i - 1], (0, 255, 0), 1)
+                results = decode(imdecode)
+                for result in results:
+                    code = result[0]
+                    print("code:"+str(code))
+                    point = result[1][0:2]
+                    print("point:"+str(point))
                     cv2.putText(
-                        imr, code, points[0], cv2.FONT_HERSHEY_SIMPLEX, .4, (0, 250, 0), 1)
+                        imr, code, point, cv2.FONT_HERSHEY_SIMPLEX, .4, (0, 250, 0), 1)
 
-        except Exception:
-            print "error decode"
+        except Exception as e:
+            print("---------------------")
+            print("Exception args:", e.args)
+            import traceback
+            traceback.print_exc()
             pass
 
         e2 = cv2.getTickCount()
@@ -93,41 +100,37 @@ def data_matrix_demo(cap):
 
 
 def decode(imgcv2):
-    code = ""
+    results = []
     try:
         st = datetime.datetime.now()
         img = Image.fromarray(imgcv2)
         if img.mode != 'RGB':
             img = img.convert('RGB')
-        dm_read = DataMatrix()
-        code = dm_read.decode(
-            img.size[0],
-            img.size[1],
-            buffer(
-                img.tostring()),
+        results = pylibdmtx.decode(
+            img,
             timeout=80,
-            maxcount=1,
+            max_count=1,
             corrections=3)
         end = datetime.datetime.now()
-        if dm_read.count() == 1:
+        if len(results) > 0:
             # print code, end - st
             time = end - st
 
-            print dm_read.stats(1), "t:", str(time)[6:]
-            points = dm_read.stats(1)[1]
-            # print "points:", points
-            # os.system("beep -f1296 -l10")
-    except Exception:
-        print "error decode"
+            print "time:", str(time)[6:]
+    except Exception as e:
+        print("---------------------")
+        print("Exception args:", e.args)
+        import traceback
+        traceback.print_exc()
         pass
 
-    return code, points
+    return results 
 
 if __name__ == '__main__':
     print __doc__
 
     if len(sys.argv) == 1:
-        cap = cv2.VideoCapture(1)
+        cap = cv2.VideoCapture(0)
     else:
         cap = cv2.VideoCapture(sys.argv[1])
         if not cap.isOpened():
